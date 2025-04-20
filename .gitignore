@@ -3,3 +3,4 @@
 uploads/**
 path_to_your_database.db
 website/database/family_photos.db
+website/uploads/*

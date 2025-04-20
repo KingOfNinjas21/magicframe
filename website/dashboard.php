@@ -148,6 +148,12 @@ try {
                         } else {
                             $friend_error = "Fehler beim Hinzufügen des Freundes.";
                         }
+                       // Add reverse friendship
+                        $stmt = $db->prepare('INSERT INTO friendships (user_id, friend_id) VALUES (:user_id, :friend_id)');
+                        $stmt->bindValue(':user_id', $friend_id, SQLITE3_INTEGER);
+                        $stmt->bindValue(':friend_id', $user_id, SQLITE3_INTEGER);
+                        $result = $stmt->execute();
+
                     } else {
                         $friend_error = "Diese Person ist bereits in deiner Freundesliste.";
                     }
@@ -167,7 +173,7 @@ try {
         SELECT u.id, u.username, u.email 
         FROM users u
         JOIN friendships f ON u.id = f.friend_id
-        WHERE f.user_id = :user_id OR f.friend_id = :user_id
+        WHERE f.user_id = :user_id
     ');
     $stmt->bindValue(':user_id', $user_id, SQLITE3_INTEGER);
     $result = $stmt->execute();
