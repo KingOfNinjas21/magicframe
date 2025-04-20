@@ -109,7 +109,7 @@ class OnScreenKeyboard:
 class MagicFrameApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Magic Photo Frame")
+        self.root.title("Magic Photo Frame!")
         self.root.attributes('-fullscreen', True)
         
         # Initialize variables
