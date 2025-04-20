@@ -158,7 +158,7 @@ class MagicFrameApp:
         self.main_frame.pack(fill=tk.BOTH, expand=True)
         
         # Title and logo
-        self.title_label = tk.Label(self.main_frame, text="Magic Photo Frame", font=("Helvetica", 24, "bold"))
+        self.title_label = tk.Label(self.main_frame, text="Magic Photo Frame!", font=("Helvetica", 24, "bold"))
         self.title_label.pack(pady=20)
         
         # Mode selection frame
