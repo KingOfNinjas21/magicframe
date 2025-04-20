@@ -217,8 +217,135 @@ function getSharedImages() {
     echo json_encode(['images' => $images]);
 }
 
-// Get not downloaded images for the current user
 function getNotDownloadedImages() {
+    global $db;
+    
+    $user = authenticate();
+    $userId = $user['id'];
+    
+    // Query for not downloaded images
+    $stmt = $db->prepare('
+        SELECT i.*, u.username as uploaded_by, u.id as owner_id
+        FROM images i
+        JOIN image_permissions p ON i.id = p.image_id
+        JOIN users u ON i.user_id = u.id
+        WHERE p.user_id = :user_id
+        AND i.user_id != :user_id
+        AND p.downloaded = 0
+        ORDER BY i.upload_date DESC
+    ');
+    $stmt->bindValue(':user_id', $userId, SQLITE3_INTEGER);
+    $result = $stmt->execute();
+    
+    // Check if we should return metadata or download the files
+    $downloadMode = isset($_GET['download']) && $_GET['download'] == 'true';
+    
+    $images = [];
+    $imagesToZip = [];
+    
+    while ($image = $result->fetchArray(SQLITE3_ASSOC)) {
+        // Add image URL for metadata mode
+        $image['url'] = 'uploads/' . $image['user_id'] . '/' . $image['filename'];
+        $images[] = $image;
+        
+        // Collect file info for download mode
+        if ($downloadMode) {
+            $filePath = __DIR__ . '/uploads/' . $image['user_id'] . '/' . $image['filename'];
+            if (file_exists($filePath)) {
+                $imagesToZip[] = [
+                    'id' => $image['id'],
+                    'path' => $filePath,
+                    'name' => $image['original_filename'] ?? $image['filename']
+                ];
+            }
+        }
+        
+        // Mark as downloaded regardless of mode
+        $updateStmt = $db->prepare('
+            UPDATE image_permissions
+            SET downloaded = 1
+            WHERE image_id = :image_id AND user_id = :user_id
+        ');
+        $updateStmt->bindValue(':image_id', $image['id'], SQLITE3_INTEGER);
+        $updateStmt->bindValue(':user_id', $userId, SQLITE3_INTEGER);
+        $updateStmt->execute();
+    }
+    
+    // If no download request or no images, return metadata
+    if (!$downloadMode || empty($imagesToZip)) {
+        if ($downloadMode && empty($imagesToZip)) {
+            echo json_encode(['message' => 'No new images to download']);
+        } else {
+            echo json_encode(['images' => $images]);
+        }
+        return;
+    }
+    
+    // If only one image, download it directly
+    if (count($imagesToZip) === 1) {
+        $image = $imagesToZip[0];
+        $filePath = $image['path'];
+        
+        // Set appropriate headers for file download
+        header('Content-Type: application/json'); // Remove this line when testing
+        header('Content-Type: ' . mime_content_type($filePath));
+        header('Content-Disposition: attachment; filename="' . $image['name'] . '"');
+        header('Content-Length: ' . filesize($filePath));
+        header('Cache-Control: no-cache, must-revalidate');
+        header('Pragma: public');
+        
+        // Output the file
+        readfile($filePath);
+        exit;
+    }
+    
+    // For multiple images, create a ZIP archive
+    $zipFilename = 'new_family_photos_' . date('Ymd_His') . '.zip';
+    $zipPath = sys_get_temp_dir() . '/' . $zipFilename;
+    
+    $zip = new ZipArchive();
+    if ($zip->open($zipPath, ZipArchive::CREATE) !== TRUE) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Could not create ZIP archive']);
+        return;
+    }
+    
+    // Add images to ZIP
+    $filenameMap = []; // To handle duplicate filenames
+    foreach ($imagesToZip as $image) {
+        $filename = $image['name'];
+        
+        // Handle duplicate filenames
+        if (isset($filenameMap[$filename])) {
+            $filenameMap[$filename]++;
+            $parts = pathinfo($filename);
+            $filename = $parts['filename'] . '_' . $filenameMap[$filename] . '.' . $parts['extension'];
+        } else {
+            $filenameMap[$filename] = 1;
+        }
+        
+        $zip->addFile($image['path'], $filename);
+    }
+    
+    $zip->close();
+    
+    // Send ZIP file
+    header('Content-Type: application/json'); // Remove this line when testing
+    header('Content-Type: application/zip');
+    header('Content-Disposition: attachment; filename="' . $zipFilename . '"');
+    header('Content-Length: ' . filesize($zipPath));
+    header('Pragma: public');
+    header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+    
+    readfile($zipPath);
+    
+    // Clean up
+    unlink($zipPath);
+    exit;
+}
+
+// Get not downloaded images for the current user
+function getNotDownloadedImagesMeta() {
     global $db;
     
     $user = authenticate();
@@ -444,6 +571,193 @@ function logout() {
     ]);
 }
 
+function downloadImages() {
+    global $db;
+    
+    $user = authenticate();
+    $userId = $user['id'];
+    
+    // Get image IDs from the request (supports both GET and POST)
+    $imageIds = [];
+    
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['ids'])) {
+        // Handle GET request with comma-separated IDs
+        $imageIds = array_map('intval', explode(',', $_GET['ids']));
+    } else if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        // Handle POST request with JSON body
+        $data = json_decode(file_get_contents('php://input'), true);
+        if (isset($data['ids']) && is_array($data['ids'])) {
+            $imageIds = array_map('intval', $data['ids']);
+        }
+    }
+    
+    // Check if we have any image IDs
+    if (empty($imageIds)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'No image IDs provided. Use "ids" parameter with comma-separated values or POST a JSON object with an "ids" array']);
+        return;
+    }
+    
+    // For single image, use direct download
+    if (count($imageIds) === 1) {
+        downloadSingleImage($imageIds[0], $userId, $db);
+        return;
+    }
+    
+    // For multiple images, create a ZIP archive
+    $imagesToZip = [];
+    $validImageCount = 0;
+    
+    // Check permissions and collect valid images
+    foreach ($imageIds as $imageId) {
+        $stmt = $db->prepare('
+            SELECT i.*, u.id as owner_id, i.original_filename as orig_name
+            FROM images i
+            JOIN users u ON i.user_id = u.id
+            LEFT JOIN image_permissions p ON i.id = p.image_id AND p.user_id = :user_id
+            WHERE i.id = :image_id
+            AND (i.user_id = :user_id OR p.user_id IS NOT NULL)
+        ');
+        $stmt->bindValue(':image_id', $imageId, SQLITE3_INTEGER);
+        $stmt->bindValue(':user_id', $userId, SQLITE3_INTEGER);
+        $result = $stmt->execute();
+        $image = $result->fetchArray(SQLITE3_ASSOC);
+        
+        if ($image) {
+            $validImageCount++;
+            $filePath = __DIR__ . '/uploads/' . $image['user_id'] . '/' . $image['filename'];
+            
+            if (file_exists($filePath)) {
+                $imagesToZip[] = [
+                    'id' => $image['id'],
+                    'owner_id' => $image['owner_id'],
+                    'path' => $filePath,
+                    'name' => $image['orig_name'] // Use original filename for the ZIP
+                ];
+                
+                // Update download status if it's a shared image
+                if ($image['owner_id'] != $userId) {
+                    $updateStmt = $db->prepare('
+                        UPDATE image_permissions 
+                        SET downloaded = 1 
+                        WHERE image_id = :image_id AND user_id = :user_id
+                    ');
+                    $updateStmt->bindValue(':image_id', $imageId, SQLITE3_INTEGER);
+                    $updateStmt->bindValue(':user_id', $userId, SQLITE3_INTEGER);
+                    $updateStmt->execute();
+                }
+            }
+        }
+    }
+    
+    // If no valid images were found
+    if (empty($imagesToZip)) {
+        http_response_code(404);
+        echo json_encode(['error' => 'No valid images found or you do not have permission to access them']);
+        return;
+    }
+    
+    // Create ZIP file
+    $zipFilename = 'family_photos_' . date('Ymd_His') . '.zip';
+    $zipPath = sys_get_temp_dir() . '/' . $zipFilename;
+    
+    $zip = new ZipArchive();
+    if ($zip->open($zipPath, ZipArchive::CREATE) !== TRUE) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Could not create ZIP archive']);
+        return;
+    }
+    
+    // Add images to ZIP
+    $filenameMap = []; // To handle duplicate filenames
+    foreach ($imagesToZip as $image) {
+        $filename = $image['name'];
+        
+        // Handle duplicate filenames
+        if (isset($filenameMap[$filename])) {
+            $filenameMap[$filename]++;
+            $parts = pathinfo($filename);
+            $filename = $parts['filename'] . '_' . $filenameMap[$filename] . '.' . $parts['extension'];
+        } else {
+            $filenameMap[$filename] = 1;
+        }
+        
+        $zip->addFile($image['path'], $filename);
+    }
+    
+    $zip->close();
+    
+    // Send ZIP file
+    header('Content-Type: application/json'); // Remove this line
+    header('Content-Type: application/zip');
+    header('Content-Disposition: attachment; filename="' . $zipFilename . '"');
+    header('Content-Length: ' . filesize($zipPath));
+    header('Pragma: public');
+    header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+    
+    readfile($zipPath);
+    
+    // Clean up
+    unlink($zipPath);
+    exit;
+}
+
+// Helper function for downloading a single image
+function downloadSingleImage($imageId, $userId, $db) {
+    // Check if user owns this image or has permission to access it
+    $stmt = $db->prepare('
+        SELECT i.*, u.id as owner_id
+        FROM images i
+        JOIN users u ON i.user_id = u.id
+        LEFT JOIN image_permissions p ON i.id = p.image_id AND p.user_id = :user_id
+        WHERE i.id = :image_id
+        AND (i.user_id = :user_id OR p.user_id IS NOT NULL)
+    ');
+    $stmt->bindValue(':image_id', $imageId, SQLITE3_INTEGER);
+    $stmt->bindValue(':user_id', $userId, SQLITE3_INTEGER);
+    $result = $stmt->execute();
+    $image = $result->fetchArray(SQLITE3_ASSOC);
+    
+    if (!$image) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Image not found or you do not have permission to access it']);
+        return;
+    }
+    
+    // Update download status if it's a shared image
+    if ($image['owner_id'] != $userId) {
+        $updateStmt = $db->prepare('
+            UPDATE image_permissions 
+            SET downloaded = 1 
+            WHERE image_id = :image_id AND user_id = :user_id
+        ');
+        $updateStmt->bindValue(':image_id', $imageId, SQLITE3_INTEGER);
+        $updateStmt->bindValue(':user_id', $userId, SQLITE3_INTEGER);
+        $updateStmt->execute();
+    }
+    
+    // Get the file path
+    $filePath = __DIR__ . '/uploads/' . $image['user_id'] . '/' . $image['filename'];
+    
+    if (!file_exists($filePath)) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Image file not found']);
+        return;
+    }
+    
+    // Set appropriate headers for file download
+    header('Content-Type: application/json'); // Remove this line
+    header('Content-Type: ' . mime_content_type($filePath));
+    header('Content-Disposition: attachment; filename="' . $image['original_filename'] . '"');
+    header('Content-Length: ' . filesize($filePath));
+    header('Cache-Control: no-cache, must-revalidate');
+    header('Pragma: public');
+    
+    // Output the file
+    readfile($filePath);
+    exit;
+}
+
 // Route the request to the appropriate function
 switch ($endpoint) {
     case 'login':
@@ -492,7 +806,15 @@ switch ($endpoint) {
             echo json_encode(['error' => 'Method not allowed']);
         }
         break;
-        
+    case 'notDownloadedImagesMeta':
+        if ($requestMethod === 'GET') {
+            getNotDownloadedImagesMeta();
+        } else {
+            http_response_code(405);
+            echo json_encode(['error' => 'Method not allowed']);
+        }
+        break;
+    
     case 'friends':
         if ($requestMethod === 'GET') {
             getFriends();
@@ -507,6 +829,14 @@ switch ($endpoint) {
     case 'logout':
         if ($requestMethod === 'POST') {
             logout();
+        } else {
+            http_response_code(405);
+            echo json_encode(['error' => 'Method not allowed']);
+        }
+        break;
+    case 'download':
+        if ($requestMethod === 'GET' || $requestMethod === 'POST') {
+            downloadImages();
         } else {
             http_response_code(405);
             echo json_encode(['error' => 'Method not allowed']);

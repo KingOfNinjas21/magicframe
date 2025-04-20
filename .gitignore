@@ -1,0 +1,4 @@
+*database/**
+*uploads/*
+uploads/**
+path_to_your_database.db
