@@ -11,7 +11,7 @@ sudo mkdir -p "$AUTOSTART_DIR"
 DESKTOP_CONTENT="[Desktop Entry]
 Type=Application
 Name=MagicFrame
-Exec=bash -c 'cd /home/kingu/Documents/loginscript/magicframe/Raspberrypi && git pull && /usr/bin/python3 /home/kingu/Documents/loginscript/magicframe/Raspberrypi/loginscript.py'
+Exec=bash -c 'for i in {1..10}; do ping -c1 github.com && break || sleep 1; done; cd /home/kingu/Documents/loginscript/magicframe && git pull || true; /usr/bin/python3 /home/kingu/Documents/loginscript/magicframe/Raspberrypi/loginscript.py'
 "
 
 # Write the content to the desktop file
