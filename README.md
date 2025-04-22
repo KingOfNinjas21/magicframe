@@ -20,3 +20,6 @@ After the restart the script should run automatically.
 
 # Update 
 ATTENTION the script automatically pulls one every reboot. if you do not want that delete that line from your script.
+
+# Display
+For easier building I rotated the output. if you do not want that remove the rotation section of the setup script.

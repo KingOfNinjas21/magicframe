@@ -22,6 +22,24 @@ sudo chmod +x "$DESKTOP_FILE"
 
 echo "MagicFrame autostart configuration has been set up at $DESKTOP_FILE"
 
+# Display rotation on start
+# Was unable to do it via the config file, so i wam using this way
+DISPLAY_ROTATION_FILE="/etc/xdg/autostart/rotate-display.desktop"
+DISPLAY_ROTATION_CONTENT="[Desktop Entry]
+Type=Application
+Name=Rotate Display
+Exec=sh -c "xrandr --output HDMI-1 --rotate inverted"
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+"
+# Write the content to the desktop file
+echo "$DISPLAY_ROTATION_CONTENT" > "$DISPLAY_ROTATION_FILE"
+
+# Make the file executable
+sudo chmod +x "$DISPLAY_ROTATION_FILE"
+
+echo "MagicFrame display rotation has been set up at $DISPLAY_ROTATION_FILE"
+
 # Create or overwrite /boot/config.txt
 CONFIG_FILE="/boot/config.txt"
 CONFIG_CONTENT="# For more options and information see
