@@ -28,7 +28,7 @@ DISPLAY_ROTATION_FILE="/etc/xdg/autostart/rotate-display.desktop"
 DISPLAY_ROTATION_CONTENT="[Desktop Entry]
 Type=Application
 Name=Rotate Display
-Exec=sh -c "xrandr --output HDMI-1 --rotate inverted"
+Exec=sh -c \"xrandr --output HDMI-1 --rotate inverted\"
 NoDisplay=false
 X-GNOME-Autostart-enabled=true
 "
