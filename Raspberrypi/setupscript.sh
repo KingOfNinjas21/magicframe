@@ -105,11 +105,29 @@ find ~/ -type f -name \"postgis-2.0.0\"
 # Disable screen blanking
 consoleblank=0
 "
-
 # Write the content to the config file (requires sudo)
 echo "Creating or overwriting $CONFIG_FILE (will prompt for sudo password)"
 echo "$CONFIG_CONTENT" | sudo tee "$CONFIG_FILE" > /dev/null
 
 echo "Config file has been updated at $CONFIG_FILE"
+
+#Deactivate screen blanking
+AUTOSTART_SCREEN_FILE="/etc/xdg/lxsession/LXDE-pi/autostart"
+echo "Deactivate auto blanking ($AUTOSTART_SCREEN_FILE)"
+
+# Lines to be added
+NEW_LINES=(
+"@xset s off"
+"@xset -dpms"
+"@xset s noblank"
+)
+
+# Backup the original file
+cp "$AUTOSTART_SCREEN_FILE" "${AUTOSTART_SCREEN_FILE}.bak"
+
+# Append lines if they don't already exist
+for line in "${NEW_LINES[@]}"; do
+    grep -qxF "$line" "$AUTOSTART_SCREEN_FILE" || echo "$line" >> "$AUTOSTART_SCREEN_FILE"
+done
 
 sudo reboot
