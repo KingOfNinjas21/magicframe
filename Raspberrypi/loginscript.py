@@ -70,14 +70,12 @@ class OnScreenKeyboard:
             ['Shift', 'Space', 'Enter']
         ]
        
-        # Create keyboard buttons
         for i, row in enumerate(keys):
             frame = tk.Frame(self.keyboard_window)
             frame.pack(fill='x')
            
             for key in row:
                 display_key = key
-                cmd = None
                 width = 5
                 bg_color = '#F0F0F0'
                 
@@ -100,15 +98,22 @@ class OnScreenKeyboard:
                     width = 15
                     bg_color = '#90EE90'
                 else:
+
                     if self.shift and key.isalpha():
                         display_key = key.upper()
-                    cmd = lambda k=display_key: self.press_key(k)
+
+                    cmd = lambda k=key: self.press_character(k)
                 
                 button = tk.Button(frame, text=display_key, width=width, bg=bg_color, command=cmd)
                 button.pack(side='left', padx=2, pady=2)
                 
                 if key not in ['Space', 'Backspace', 'Shift', 'Enter']:
                     self.buttons[key] = button
+    
+    def press_character(self, key):
+        """Handle character key presses with shift awareness"""
+        actual_key = key.upper() if self.shift and key.isalpha() else key
+        self.press_key(actual_key)
    
     def press_key(self, key):
         if self.entry_widget:
@@ -144,7 +149,7 @@ class OnScreenKeyboard:
         
         # Update the buttons to show uppercase/lowercase
         for key, button in self.buttons.items():
-            if key.isalpha():
+            if key.isalpha(): 
                 if self.shift:
                     button.config(text=key.upper())
                 else:
