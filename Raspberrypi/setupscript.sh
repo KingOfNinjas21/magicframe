@@ -28,7 +28,7 @@ DISPLAY_ROTATION_FILE="/etc/xdg/autostart/rotate-display.desktop"
 DISPLAY_ROTATION_CONTENT="[Desktop Entry]
 Type=Application
 Name=Rotate Display
-Exec=sh -c \"xrandr --output HDMI-1 --rotate inverted\"
+Exec=sh -c \"xrandr --output HDMI-1 --rotate inverted && DISPLAY=:0 xinput set-prop 'QDTECH̐MPI700 MPI7002' 'Coordinate Transformation Matrix' -1 0 1 0 -1 1 0 0 1\"
 NoDisplay=false
 X-GNOME-Autostart-enabled=true
 "
@@ -102,6 +102,8 @@ otg_mode=1
 arm_boost=1
 [all]
 find ~/ -type f -name \"postgis-2.0.0\"
+# Disable screen blanking
+consoleblank=0
 "
 
 # Write the content to the config file (requires sudo)
