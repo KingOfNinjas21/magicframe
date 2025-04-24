@@ -21,7 +21,7 @@ import mimetypes
 import time
 
 # Server API configuration
-SERVER_BASE_URL = "http://212.132.64.123/magicframe/website/"
+SERVER_BASE_URL = "https://magicframe.site/magicframe/website/"
 API_URL = f"{SERVER_BASE_URL}/api.php"
 
 # Local settings                                                                
@@ -183,6 +183,10 @@ class MagicFrameApp:
          # Login button
         logout_btn = tk.Button(self.main_frame, text="Logout", width=15, command=self.logout)
         logout_btn.pack(pady=20)
+
+        self.image = tk.PhotoImage(file="scanme.png")
+        self.image_label = tk.Label(self.main_frame, image=self.image)
+        self.image_label.pack(pady=10)
         
         # On-screen keyboard
         self.keyboard = OnScreenKeyboard(self.root)
