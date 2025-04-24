@@ -59,7 +59,7 @@ class OnScreenKeyboard:
             ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
             ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', '@'],
             ['z', 'x', 'c', 'v', 'b', 'n', 'm', '.', '_', '-'],
-            ['Space', 'Enter']
+            ['Shift', 'Space', 'Enter']
         ]
         
         # Create keyboard buttons
@@ -72,6 +72,8 @@ class OnScreenKeyboard:
                     button = tk.Button(frame, text=key, width=20, command=lambda k=' ': self.press_key(k))
                 elif key == 'Backspace':
                     button = tk.Button(frame, text=key, width=10, command=self.backspace)
+                elif key == 'Shift':
+                    button = tk.Button(frame, text='Shift', width=10, bg='#ADD8E6', command=self.toggle_shift)
                 elif key == 'Enter':
                     button = tk.Button(frame, text=key, width=15, bg='#90EE90', command=self.enter)
                 else:
