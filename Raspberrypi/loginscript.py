@@ -40,6 +40,7 @@ class OnScreenKeyboard:
         self.keyboard_window = None
         self.entry_widget = None
         self.callback = None
+        self.shift = False
         
     def show_keyboard(self, entry_widget, callback=None):
         self.entry_widget = entry_widget
@@ -74,6 +75,8 @@ class OnScreenKeyboard:
                 elif key == 'Enter':
                     button = tk.Button(frame, text=key, width=15, bg='#90EE90', command=self.enter)
                 else:
+                    if self.shift:
+                        key = key.upper()
                     button = tk.Button(frame, text=key, width=5, command=lambda k=key: self.press_key(k))
                 button.pack(side='left', padx=2, pady=2)
     
@@ -105,6 +108,10 @@ class OnScreenKeyboard:
         if self.keyboard_window:
             self.keyboard_window.destroy()
             self.keyboard_window = None
+
+    def toggle_shift(self):
+        self.shift = not self.shift
+        self.build_keyboard()
 
 class MagicFrameApp:
     def __init__(self, root):
