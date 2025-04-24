@@ -21,7 +21,7 @@ import mimetypes
 import time
 
 # Server API configuration
-SERVER_BASE_URL = "https://magicframe.site/magicframe/website/"
+SERVER_BASE_URL = "https://magicframe.site/website"
 API_URL = f"{SERVER_BASE_URL}/api.php"
 
 # Local settings                                                                
