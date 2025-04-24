@@ -184,6 +184,9 @@ class MagicFrameApp:
         logout_btn = tk.Button(self.main_frame, text="Logout", width=15, command=self.logout)
         logout_btn.pack(pady=20)
 
+        # Load the image
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        image = Image.open(script_dir + "/scanme.png")
         # Define max width and height
         max_width, max_height = 200, 150
 
