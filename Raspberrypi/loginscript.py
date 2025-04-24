@@ -184,7 +184,18 @@ class MagicFrameApp:
         logout_btn = tk.Button(self.main_frame, text="Logout", width=15, command=self.logout)
         logout_btn.pack(pady=20)
 
-        self.image = tk.PhotoImage(file="scanme.png")
+        # Define max width and height
+        max_width, max_height = 200, 150
+
+        # Calculate the new size keeping the aspect ratio
+        ratio = min(max_width / image.width, max_height / image.height)
+        new_size = (int(image.width * ratio), int(image.height * ratio))
+        print(ratio, " ", new_size)
+        # Resize the image
+        image = image.resize(new_size, Image.LANCZOS)  # Resize to 200x150 pixels
+        self.image = ImageTk.PhotoImage(image)
+
+        # Display the image in a label
         self.image_label = tk.Label(self.main_frame, image=self.image)
         self.image_label.pack(pady=10)
         
