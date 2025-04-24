@@ -41,19 +41,27 @@ class OnScreenKeyboard:
         self.entry_widget = None
         self.callback = None
         self.shift = False
-        
+        self.buttons = {}  # Store references to key buttons
+       
     def show_keyboard(self, entry_widget, callback=None):
         self.entry_widget = entry_widget
         self.callback = callback
-        
+       
         if self.keyboard_window:
             self.keyboard_window.destroy()
-            
+           
         self.keyboard_window = tk.Toplevel(self.master)
         self.keyboard_window.title("On-Screen Keyboard")
         self.keyboard_window.attributes('-fullscreen', False)
         
-        # Define the keyboard layout
+        self.build_keyboard()
+   
+    def build_keyboard(self):
+        self.buttons = {}
+        
+        for widget in self.keyboard_window.winfo_children():
+            widget.destroy()
+        
         keys = [
             ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'Backspace'],
             ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
@@ -61,27 +69,47 @@ class OnScreenKeyboard:
             ['z', 'x', 'c', 'v', 'b', 'n', 'm', '.', '_', '-'],
             ['Shift', 'Space', 'Enter']
         ]
-        
+       
         # Create keyboard buttons
         for i, row in enumerate(keys):
             frame = tk.Frame(self.keyboard_window)
             frame.pack(fill='x')
-            
+           
             for key in row:
+                display_key = key
+                cmd = None
+                width = 5
+                bg_color = '#F0F0F0'
+                
                 if key == 'Space':
-                    button = tk.Button(frame, text=key, width=20, command=lambda k=' ': self.press_key(k))
+                    display_key = 'Space'
+                    cmd = lambda k=' ': self.press_key(k)
+                    width = 20
                 elif key == 'Backspace':
-                    button = tk.Button(frame, text=key, width=10, command=self.backspace)
+                    display_key = 'Backspace'
+                    cmd = self.backspace
+                    width = 10
                 elif key == 'Shift':
-                    button = tk.Button(frame, text='Shift', width=10, bg='#ADD8E6', command=self.toggle_shift)
+                    display_key = 'Shift'
+                    cmd = self.toggle_shift
+                    width = 10
+                    bg_color = '#ADD8E6' if not self.shift else '#87CEEB'
                 elif key == 'Enter':
-                    button = tk.Button(frame, text=key, width=15, bg='#90EE90', command=self.enter)
+                    display_key = 'Enter'
+                    cmd = self.enter
+                    width = 15
+                    bg_color = '#90EE90'
                 else:
-                    if self.shift:
-                        key = key.upper()
-                    button = tk.Button(frame, text=key, width=5, command=lambda k=key: self.press_key(k))
+                    if self.shift and key.isalpha():
+                        display_key = key.upper()
+                    cmd = lambda k=display_key: self.press_key(k)
+                
+                button = tk.Button(frame, text=display_key, width=width, bg=bg_color, command=cmd)
                 button.pack(side='left', padx=2, pady=2)
-    
+                
+                if key not in ['Space', 'Backspace', 'Shift', 'Enter']:
+                    self.buttons[key] = button
+   
     def press_key(self, key):
         if self.entry_widget:
             current_text = self.entry_widget.get()
@@ -90,7 +118,7 @@ class OnScreenKeyboard:
             self.entry_widget.delete(0, tk.END)
             self.entry_widget.insert(0, new_text)
             self.entry_widget.icursor(cursor_position + 1)
-    
+   
     def backspace(self):
         if self.entry_widget:
             current_text = self.entry_widget.get()
@@ -100,20 +128,36 @@ class OnScreenKeyboard:
                 self.entry_widget.delete(0, tk.END)
                 self.entry_widget.insert(0, new_text)
                 self.entry_widget.icursor(cursor_position - 1)
-    
+   
     def enter(self):
         if self.callback:
             self.callback()
         self.hide_keyboard()
-    
+   
     def hide_keyboard(self):
         if self.keyboard_window:
             self.keyboard_window.destroy()
             self.keyboard_window = None
-
+            
     def toggle_shift(self):
         self.shift = not self.shift
-        self.build_keyboard()
+        
+        # Update the buttons to show uppercase/lowercase
+        for key, button in self.buttons.items():
+            if key.isalpha():
+                if self.shift:
+                    button.config(text=key.upper())
+                else:
+                    button.config(text=key.lower())  
+        
+        # Update the shift button appearance
+        for widget in self.keyboard_window.winfo_children():
+            for child in widget.winfo_children():
+                if isinstance(child, tk.Button) and child.cget('text') == 'Shift':
+                    if self.shift:
+                        child.config(bg='#87CEEB') 
+                    else:
+                        child.config(bg='#ADD8E6')
 
 class MagicFrameApp:
     def __init__(self, root):
