@@ -10,7 +10,7 @@ import subprocess
 from datetime import datetime
 import tkinter as tk
 from tkinter import ttk, simpledialog
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageOps, ExifTags
 import pygame
 
 import tempfile
@@ -669,20 +669,48 @@ class MagicFrameApp:
     def show_next_image(self):
         if not self.slideshow_running or not self.images:
             return
-        
+    
         try:
             # Get current image path
             image_path = self.images[self.current_image_index]
-            
-            # Open and resize image to fit screen
+        
+            # Open image
             image = Image.open(image_path)
+            
+            # Apply EXIF orientation if it exists
+            try:
+                for orientation in ExifTags.TAGS.keys():
+                    if ExifTags.TAGS[orientation] == 'Orientation':
+                        break
+                        
+                exif = image._getexif()
+                if exif is not None and orientation in exif:
+                    if exif[orientation] == 2:
+                        image = image.transpose(Image.FLIP_LEFT_RIGHT)
+                    elif exif[orientation] == 3:
+                        image = image.transpose(Image.ROTATE_180)
+                    elif exif[orientation] == 4:
+                        image = image.transpose(Image.FLIP_TOP_BOTTOM)
+                    elif exif[orientation] == 5:
+                        image = image.transpose(Image.FLIP_LEFT_RIGHT).transpose(Image.ROTATE_90)
+                    elif exif[orientation] == 6:
+                        image = image.transpose(Image.ROTATE_270)
+                    elif exif[orientation] == 7:
+                        image = image.transpose(Image.FLIP_LEFT_RIGHT).transpose(Image.ROTATE_270)
+                    elif exif[orientation] == 8:
+                        image = image.transpose(Image.ROTATE_90)
+            except (AttributeError, KeyError, IndexError):
+                # No EXIF orientation found or other issue, proceed with image as is
+                pass
+            
+            # Get screen dimensions
             screen_width = self.root.winfo_screenwidth()
             screen_height = self.root.winfo_screenheight()
-            
+        
             # Calculate aspect ratio for resizing
             img_width, img_height = image.size
             aspect_ratio = img_width / img_height
-            
+        
             if screen_width / screen_height > aspect_ratio:
                 # Screen is wider than image
                 new_height = screen_height
