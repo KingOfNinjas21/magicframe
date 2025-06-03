@@ -230,7 +230,6 @@ function getNotDownloadedImages() {
         JOIN image_permissions p ON i.id = p.image_id
         JOIN users u ON i.user_id = u.id
         WHERE p.user_id = :user_id
-        AND i.user_id != :user_id
         AND p.downloaded = 0
         ORDER BY i.upload_date DESC
     ');
@@ -616,7 +615,7 @@ function downloadImages() {
             JOIN users u ON i.user_id = u.id
             LEFT JOIN image_permissions p ON i.id = p.image_id AND p.user_id = :user_id
             WHERE i.id = :image_id
-            AND (i.user_id = :user_id OR p.user_id IS NOT NULL)
+            AND (i.user_id = :user_id OR p.user_id = :user_id)
         ');
         $stmt->bindValue(':image_id', $imageId, SQLITE3_INTEGER);
         $stmt->bindValue(':user_id', $userId, SQLITE3_INTEGER);
